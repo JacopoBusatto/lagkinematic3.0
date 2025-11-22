@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lagkinematic3"
+version = "3.0.0"
+description = "LAGKINEMATIC 3.0 — Python controller with C++ kernels for Lagrangian trajectory integration"
+requires-python = ">=3.10"
+dependencies = ["xarray", "netCDF4", "numpy", "pyyaml", "click", "pyarrow"]  # 👈 aggiunto pyarrow
+
+[project.scripts]
+lagk3 = "lagkinematic.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "python"}  # <— indica che i pacchetti sono sotto ./python
+
+[tool.setuptools.packages.find]
+where = ["python"]             # <— trova automaticamente "lagkinematic"

@@ -1,0 +1,78 @@
+{
+  "lagkinematic_version": "3.0.0",
+  "run": {
+    "start": "2016-06-01",
+    "duration": "3d",
+    "dt_seconds": 60,
+    "snapshots_seconds": 86400,
+    "backtrajectory": false,
+    "time_loops": 0,
+    "output": {
+      "dir": "C:\\Users\\Jacopo\\Documents\\Lagkinematic3.0\\OUT_DEV_LIST",
+      "format": "parquet",
+      "mode": "steps",
+      "steps_layout": "time",
+      "steps_chunk_size": 86400
+    }
+  },
+  "domain": {
+    "type": "RegularLatLon",
+    "files_mode": "list",
+    "num_files": 3
+  },
+  "meta": {
+    "n_steps": 4321,
+    "dt_seconds": 60,
+    "snapshots_seconds": 86400,
+    "estimated_snapshots": 4,
+    "first_file_checked": "examples\\dataset_day01.nc",
+    "dims_first_file": {
+      "time": 1,
+      "lat": 2,
+      "lon": 2,
+      "depth": 1
+    },
+    "dtypes_first_file": {
+      "u": "float64",
+      "v": "float64"
+    },
+    "n_pairs": 3,
+    "parquet_schema": [
+      "id",
+      "time",
+      "X1",
+      "Y1",
+      "Z1",
+      "X2",
+      "Y2",
+      "Z2",
+      "age"
+    ],
+    "partitioning": "per-rank-files",
+    "time_axis": {
+      "native_dt_seconds": 86400.0,
+      "n_cycles": 1,
+      "cycle_length_seconds": null,
+      "n_points": 3,
+      "first_iso": "2016-01-01T00:00:00.000000000",
+      "last_iso": "2016-01-03T00:00:00.000000000"
+    },
+    "time_loops": 0,
+    "integration_time_grid": {
+      "n_points": 4321,
+      "dt_seconds": 60,
+      "first_iso": "2016-06-01T00:00:00.000000000",
+      "last_iso": "2016-06-04T00:00:00.000000000"
+    },
+    "id_offset_rank": {
+      "rank": 0,
+      "offset": 0,
+      "count": 3
+    },
+    "output": {
+      "mode": "steps",
+      "steps_layout": "time",
+      "steps_chunk_size": 86400
+    }
+  }
+}

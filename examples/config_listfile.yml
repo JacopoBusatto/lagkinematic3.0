@@ -1,0 +1,24 @@
+run:
+  start: "2016-06-01"
+  duration: "4d"
+  dt_seconds: 60
+  snapshots_seconds: 3600
+  backtrajectory: false
+  output:
+    dir: "./OUT_DEV_LISTFILE/"
+    format: "parquet"
+
+domain:
+  type: "RegularLatLon"
+  coords: {lon: "lon", lat: "lat", depth: "depth", time: "time"}
+  velocity:
+    u: {var: "u"}
+    v: {var: "v"}
+    w: {var: null}
+  files:
+    mode: "listfile"
+    path: "examples/elenco_dummy.txt"
+
+starts:
+  file: "starts_dummy.dat"
+  format: "pairs_xyz_age#col8_preserve"

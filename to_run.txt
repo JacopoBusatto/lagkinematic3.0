@@ -1,0 +1,94 @@
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+python -m lagkinematic -c examples\config_list.yml
+
+
+
+# PS C:\Users\Jacopo\Documents\Lagkinematic3.0> . .\.venv\Scripts\Activate.ps1
+
+
+Come “installi” e lanci lagkinematic
+1) Ambiente
+
+Crei (una volta) un ambiente e lo attivi:
+
+python -m venv .venv
+. .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+
+
+✅
+
+2) Installazione “editable” (sviluppo)
+
+Dentro la root del progetto:
+
+pip install -e .
+
+
+✅
+
+-e . = editable mode: non copia i file in site-packages, ma crea un link.
+Quindi ogni modifica al codice (es. python/lagkinematic/*.py) è subito visibile senza reinstallare.
+
+Se cambi dipendenze nel pyproject.toml (es. aggiungi pyarrow), rifai solo:
+
+pip install -e .
+
+
+✅
+
+3) Come si lancia
+
+Hai due modi equivalenti:
+
+A) Modulo Python
+python -m lagkinematic -c examples\config_list.yml
+
+
+✅
+Questo funziona perché il pacchetto ha lagkinematic/__main__.py che chiama il nostro cli.main().
+
+B) Console script (facoltativo, comodo)
+
+Se nel pyproject.toml aggiungi una entry (così avrai un comando lagk), ad es.:
+
+[project.scripts]
+lagk = "lagkinematic.__main__:main"
+
+
+poi reinstalla (pip install -e .) e lanci:
+
+lagk -c examples\config_list.yml
+
+
+✅
+
+4) Differenze rispetto al C/C++
+
+In C/C++: compili un eseguibile (es. mpic++ ... -o LAGKINEMATIC1.0).
+
+In Python: installi un pacchetto; l’eseguibile è “virtuale”:
+
+o usi python -m <package>,
+
+o crei un “console script” (lagk) via pyproject.toml.
+
+Non c’è link statico: l’“eseguibile” è il tuo codice sorgente + l’interprete Python.
+
+5) Con MPI sull’HPC
+
+Quando aggiungi mpi4py e userai N processi:
+
+mpirun -np 16 python -m lagkinematic -c <config.yml>
+
+
+✅
+(oppure mpirun -np 16 lagk -c <config.yml> se usi lo script).
+
+6) Quando serviranno i kernel C++ (pybind11)
+
+Più avanti, se/quando collegheremo estensioni C++, il pyproject.toml conterrà anche la build delle extension (pybind11/setuptools). In quel caso:
+
+durante pip install -e . verranno compilate le librerie native,
+
+ma tu continuerai a lanciare allo stesso modo (python -m lagkinematic / lagk).

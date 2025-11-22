@@ -1,0 +1,28 @@
+run:
+  start: "2016-06-01"
+  duration: "180d"
+  dt_seconds: 60
+  snapshots_seconds: 3600
+  backtrajectory: false
+  output:
+    dir: "./OUT_DEV/"
+    format: "parquet"
+
+domain:
+  type: "RegularLatLon"
+  coords: {lon: "longitude", lat: "latitude", depth: "depth", time: "time"}
+  velocity:
+    u: {var: "ugo", dtype: "float32", scale: 1.0, add_offset: 0.0}
+    v: {var: "vgo", dtype: "float32", scale: 1.0, add_offset: 0.0}
+    w: {var: null}
+  time_step_source_seconds: 86400
+  files:
+    mode: "daterange"
+    base_dir: "/store3/JacopoBusatto/MODELS/4DMED/CLS/SICILY"
+    template: "dataset-4dmed-phys-my-daily_{date:%Y%m%d}.nc"
+    # end assente: verrà calcolata come start + run.duration
+    freq: "1D"
+
+starts:
+  file: "/home/jbusatto/SIMULATIONS/4DMED_SCIENTIFIC2/STARTS/start_PROTOCOLLO_CUTTITTA_1-24_100m_16P_gaussian.dat"
+  format: "pairs_xyz_age#col8_preserve"

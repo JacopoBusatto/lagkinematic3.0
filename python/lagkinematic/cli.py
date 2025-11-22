@@ -348,4 +348,5 @@ def main(config: str):
     chunk_manager.finalize()
 
     if RANK == 0:
-        click.echo("[lagk] Integrazione Euler di test completata (dummy sampler + dummy writer)")
+        click.echo("[lagk] Integrazione Euler di test completata (RegularLatLonSampler + dummy writer)")
+

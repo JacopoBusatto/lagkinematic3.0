@@ -1,8 +1,56 @@
+# -------------------------
+# Python
+# -------------------------
 __pycache__/
 *.pyc
 *.pyo
+
+# -------------------------
+# Build & packaging
+# -------------------------
+*.egg-info/
 build/
 dist/
-*.egg-info/
+
+# -------------------------
+# Environments
+# -------------------------
+.venv/
+.env/
+
+# -------------------------
+# Editors / Tools
+# -------------------------
 .vscode/
+.idea/
+
+# -------------------------
+# Output & Runtime files
+# -------------------------
 OUT_DEV/
+OUT_DEV_LIST/
+trajectories/
+trajectories.parquet
+*.parquet
+*.nc
+*.json
+*.dat
+*.txt
+
+# Se vuoi tenere i file txt di config, escludi solo gli output:
+!examples/*.txt
+!examples/*.yml
+
+# -------------------------
+# Temporary / cache
+# -------------------------
+*.tmp
+*.log
+*.out
+*.lock
+
+# -------------------------
+# OS & misc
+# -------------------------
+.DS_Store
+Thumbs.db

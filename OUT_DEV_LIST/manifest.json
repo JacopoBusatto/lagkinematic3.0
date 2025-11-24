@@ -3,8 +3,8 @@
   "run": {
     "start": "2016-06-01",
     "duration": "3d",
-    "dt_seconds": 60,
-    "snapshots_seconds": 86400,
+    "dt_seconds": 1800,
+    "snapshots_seconds": 1800,
     "backtrajectory": false,
     "time_loops": 0,
     "output": {
@@ -21,16 +21,16 @@
     "num_files": 3
   },
   "meta": {
-    "n_steps": 4321,
-    "dt_seconds": 60,
-    "snapshots_seconds": 86400,
-    "estimated_snapshots": 4,
+    "n_steps": 145,
+    "dt_seconds": 1800,
+    "snapshots_seconds": 1800,
+    "estimated_snapshots": 146,
     "first_file_checked": "examples\\dataset_day01.nc",
     "dims_first_file": {
       "time": 1,
-      "lat": 2,
-      "lon": 2,
-      "depth": 1
+      "depth": 1,
+      "lat": 4,
+      "lon": 5
     },
     "dtypes_first_file": {
       "u": "float64",
@@ -54,13 +54,13 @@
       "n_cycles": 1,
       "cycle_length_seconds": null,
       "n_points": 3,
-      "first_iso": "2016-01-01T00:00:00.000000000",
-      "last_iso": "2016-01-03T00:00:00.000000000"
+      "first_iso": "2016-06-01T00:00:00.000000000",
+      "last_iso": "2016-06-03T00:00:00.000000000"
     },
     "time_loops": 0,
     "integration_time_grid": {
-      "n_points": 4321,
-      "dt_seconds": 60,
+      "n_points": 145,
+      "dt_seconds": 1800,
       "first_iso": "2016-06-01T00:00:00.000000000",
       "last_iso": "2016-06-04T00:00:00.000000000"
     },

@@ -9,6 +9,7 @@ from lagkinematic.io.regular_latlon import validate_regular_latlon
 from lagkinematic.io.starts import read_starts
 # ⬇️ usa SOLO il writer per-rank
 from lagkinematic.writers.parquet_writer import write_manifest, write_initial_positions_rank
+from lagkinematic.writers.steps_parquet_writer import StepsParquetWriter
 from lagkinematic.io.timeaxis import compute_time_axis_regular_latlon
 from lagkinematic.core.timegrid import build_time_grid, parse_duration_seconds
 from lagkinematic.geometry import LonLatDomain
@@ -284,24 +285,12 @@ def main(config: str):
         subgrid=subgrid_model,
     )
 
-
-
-
-
-    # Writer dummy per gli steps: per ora stampa solo quanti step scriverebbe per chunk
-    class DummyStepsWriter:
-        def __init__(self, outdir: str, rank: int):
-            self.outdir = pathlib.Path(outdir)
-            self.rank = rank
-
-        def write_chunk(self, chunk_index: int, rows):
-            # Qui in futuro userai il parquet_writer.
-            click.echo(
-                f"[rank {self.rank}] DummyStepsWriter: chunk={chunk_index} rows={len(rows)}",
-                err=False,
-            )
-
-    steps_writer = DummyStepsWriter(cfg["run"]["output"]["dir"], RANK)
+    # Writer reale per gli steps: salva i chunk su Parquet per-rank
+    steps_writer = StepsParquetWriter(
+        base_dir=cfg["run"]["output"]["dir"],
+        rank=RANK,
+        layout=cfg["run"]["output"].get("steps_layout", "time"),
+    )
 
     # TimeChunkManager: usa steps_chunk_size come dimensione in secondi del chunk
     steps_chunk_size = int(cfg["run"]["output"]["steps_chunk_size"])
@@ -324,7 +313,7 @@ def main(config: str):
         )
 
     # Mini-loop di integrazione: per ora solo pochi step di test
-    n_test_steps = min(3, n_steps)  # 2–3 step come test locale
+    n_test_steps = min(3, n_steps)
 
     if RANK == 0:
         click.echo(f"[lagk] Eseguo integrazione di test: n_test_steps={n_test_steps} dt={dt_s}s")
@@ -332,21 +321,34 @@ def main(config: str):
     for step_idx in range(n_test_steps):
         t_sec = step_idx * dt_s
 
-        # Rispettiamo i t_delay usando idx_start:
-        # se step_idx < idx_start[i], la coppia non è ancora "rilasciata".
+        # 1) OUTPUT allo stato corrente (prima dell'integrazione)
+        if (t_sec % snap_s) == 0:
+            for i, pair in enumerate(pairs):
+                if step_idx < idx_start[i]:
+                    continue
+
+                # calcolo dell'età
+                t_delay = float(tdelay_local[i])
+                pair.age = max(0.0, t_sec - t_delay)
+
+                # tempo attuale
+                pair.t = float(t_sec)
+
+                # scrittura singola
+                chunk_manager.add_step(pair)
+
+            # snapshot (stampa)
+            dummy_snapshot_writer(pairs, t_sec)
+
+        # 2) INTEGRAZIONE da t → t + dt
         for i, pair in enumerate(pairs):
             if step_idx < idx_start[i]:
                 continue
+
             integrator.step_pair(pair, t_sec)
-            chunk_manager.add_step(pair)
 
-        # Snapshot (dummy) se richiesto
-        if is_snapshot_time(t_sec, snap_s):
-            dummy_snapshot_writer(pairs, t_sec)
-
-    # Flush finale degli steps del'ultimo chunk
+    # Flush finale
     chunk_manager.finalize()
 
     if RANK == 0:
-        click.echo("[lagk] Integrazione Euler di test completata (RegularLatLonSampler + dummy writer)")
-
+        click.echo("[lagk] Integrazione Euler di test completata (RegularLatLonSampler + parquet writer)")

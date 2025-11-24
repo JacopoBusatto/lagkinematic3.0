@@ -43,7 +43,7 @@ class TimeChunkBuffer:
             "Y2": pair.p2.lat,
             "Z2": pair.p2.depth,
             # age per ora fissato a 0.0 (lo definiremo meglio in futuro)
-            "age": 0.0,
+            "age": pair.age,
         }
         self.rows.append(row)
 

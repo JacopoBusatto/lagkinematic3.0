@@ -66,7 +66,8 @@ class ParticlePairState:
     id: int
     p1: ParticleState
     p2: ParticleState
-    t: float  # tempo in secondi dall'inizio del run
+    t: float = 0.0           # tempo in secondi dall'inizio del run
+    age: float = 0.0         # età della coppia rispetto al rilascio (t - t_delay)
 
 
 # ---------- Integratore Euler ----------
@@ -134,7 +135,7 @@ class EulerIntegrator:
         # wrapping periodico della longitudine in base al dominio
         lon_new = wrap_longitude(lon_new, self.domain)
 
-        # 6) Aggiornamento profondità (qui semplicemente Z + w*dt; puoi raffinarlo dopo)
+        # 6) Aggiornamento profondità (qui semplicemente Z + w*dt)
         depth_new = p.depth + dz
 
         # 7) Scrittura stato aggiornato

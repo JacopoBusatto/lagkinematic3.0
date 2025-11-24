@@ -1,8 +1,8 @@
 run:
   start: "2016-06-01"
   duration: "3d"
-  dt_seconds: 60
-  snapshots_seconds: 86400
+  dt_seconds: 1800
+  snapshots_seconds: 1800
   backtrajectory: false
   time_loops: 0         # 0 = niente loop; >0 = ripeti N cicli temporali dei file
   output:
@@ -10,7 +10,7 @@ run:
     format: "parquet"
     mode: "steps"
     steps_layout: "time"
-    steps_chunk_size: 86400  # chunk di 1 giorno in questo test
+    steps_chunk_size: 86400
 
 domain:
   type: "RegularLatLon"
@@ -35,4 +35,3 @@ output:
   format: "parquet"
   mode: "steps"            # "steps" | "snaps" | "steps_and_snaps"
   steps_layout: "time"     # (per ora fisso "time")
-  steps_chunk_size: 1000   # n. step per file (per-rank)

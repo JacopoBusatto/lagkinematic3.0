@@ -18,6 +18,7 @@ from lagkinematic.chunking import TimeChunkManager
 from lagkinematic.utils import is_snapshot_time
 
 from lagkinematic.sampling.regular_latlon import RegularLatLonSampler
+from lagkinematic.sampling.mask_regular_latlon import RegularLatLonMaskSampler
 
 # --- MPI fallback ---
 try:
@@ -94,6 +95,15 @@ def main(config: str):
 
     # 3ter) Costruisci il sampler RegularLatLon per le velocità
     sampler_core = RegularLatLonSampler.from_config(cfg)
+
+    # 3ter-bis) Costruzione della maschera se richiesta (NaN-based)
+    mask_cfg = cfg.get("mask", {})
+    if mask_cfg.get("enabled", False):
+        mask_sampler = RegularLatLonMaskSampler.from_first_file(cfg)
+        mask_threshold = float(mask_cfg.get("threshold", 0.5))
+    else:
+        mask_sampler = None
+        mask_threshold = 0.5
 
     # 3) Lettura STARTS
     try:
@@ -179,12 +189,6 @@ def main(config: str):
         starts_local,
         cfg["run"]["start"],
     )
-    written_path = write_initial_positions_rank(
-        cfg["run"]["output"]["dir"],
-        RANK,
-        starts_local,
-        cfg["run"]["start"],
-    )
 
     # 7) Stampa riepilogo (rank 0)
     if RANK == 0:
@@ -219,14 +223,13 @@ def main(config: str):
                 f"p2=({lon2:.6f},{lat2:.3f},{dep2:.3f})  t_delay={tdelay:.1f}  col8={col8:.3f}"
             )
 
-    # 8) Integrazione Euler minimale di test (per ora con sampler/dummy)
+    # 8) Integrazione Euler minimale di test
     # ---------------------------------------------------------------
     # Costruisco le coppie di particelle per questo rank
     pairs: list[ParticlePairState] = []
     for i in range(local_count):
         lon1, lat1, dep1, lon2, lat2, dep2, tdelay, col8 = starts_local[i]
 
-        # ID globali: usa ids_global (per la coppia) e 2*id, 2*id+1 per le singole particelle
         pid_pair = int(ids_global[i])
         p1 = ParticleState(
             id=int(2 * pid_pair),
@@ -250,40 +253,42 @@ def main(config: str):
             self.t0 = np.datetime64(start_iso)
 
         def sample(self, lon_deg: float, lat_deg: float, depth_m: float, t_sec: float):
-            """
-            Converte t_sec (secondi dall'inizio del run) in datetime64[ns]
-            e chiama RegularLatLonSampler.sample_uv.
-            """
             t_ns = self.t0 + np.timedelta64(int(round(t_sec)), "s")
             return self.core.sample_uv(lon_deg, lat_deg, depth_m, t_ns)
 
     sampler = SamplerAdapter(sampler_core, cfg["run"]["start"])
     
-    # Dominio longitudinale: stimato dal primo file NetCDF del dominio
+    # Dominio lon/lat dal primo file NetCDF del dominio
     first_file = cfg["domain"]["_expanded_files"][0]
     lon_name = cfg["domain"]["coords"]["lon"]
-    with xr.open_dataset(first_file, decode_times=False) as ds_lon:
-        lon_vals = ds_lon[lon_name].values
-        lon_min = float(np.nanmin(lon_vals))
-        lon_max = float(np.nanmax(lon_vals))
-    domain = LonLatDomain(lon_min=lon_min, lon_max=lon_max)
+    lat_name = cfg["domain"]["coords"]["lat"]
 
-    # Nessuna maschera / modello cinematico per ora (verifichiamo solo pipeline)
-    mask = None
+    with xr.open_dataset(first_file, decode_times=False) as ds:
+        lons = ds[lon_name].values
+        lats = ds[lat_name].values
+
+    domain = LonLatDomain(
+        lon_min=float(np.nanmin(lons)),
+        lon_max=float(np.nanmax(lons)),
+        lat_min=float(np.nanmin(lats)),
+        lat_max=float(np.nanmax(lats)),
+    )
+
+    # Modello subgrid (per ora assente)
     subgrid_model = None
 
-    # Dominio longitudinale stimato dal primo file (vedi sopra)
-    # domain è già stato costruito pochi blocchi prima
-
-    # Integratore Euler con sampler reale (adapter)
+    # Integratore Euler con sampler reale (adapter) + maschera opzionale
     integrator = EulerIntegrator(
         sampler=sampler,
         domain=domain,
         dt=dt_s,
-        mask=mask,
-        mask_threshold=0.5,
+        mask=mask_sampler,
+        mask_threshold=mask_threshold,
         subgrid=subgrid_model,
     )
+
+    # 🔴 Kill iniziale: uccidi le coppie che partono su terra PRIMA di scrivere qualsiasi output
+    integrator.apply_initial_mask(pairs)
 
     # Writer reale per gli steps: salva i chunk su Parquet per-rank
     steps_writer = StepsParquetWriter(
@@ -302,9 +307,11 @@ def main(config: str):
 
     # Snapshot writer dummy: per ora stampa solo qualcosa
     def dummy_snapshot_writer(pairs_local, t_sec: float) -> None:
-        if not pairs_local:
+        # usa solo la prima coppia viva, se esiste
+        live = [p for p in pairs_local if p.p1.alive and p.p2.alive]
+        if not live:
             return
-        p0 = pairs_local[0]
+        p0 = live[0]
         click.echo(
             f"[rank {RANK}] SNAPSHOT t={t_sec}s "
             f"pair0.id={p0.id} "
@@ -327,6 +334,10 @@ def main(config: str):
                 if step_idx < idx_start[i]:
                     continue
 
+                # se la coppia è morta, non scriviamo
+                if (not pair.p1.alive) or (not pair.p2.alive):
+                    continue
+
                 # calcolo dell'età
                 t_delay = float(tdelay_local[i])
                 pair.age = max(0.0, t_sec - t_delay)
@@ -337,12 +348,16 @@ def main(config: str):
                 # scrittura singola
                 chunk_manager.add_step(pair)
 
-            # snapshot (stampa)
+            # snapshot (stampa) – passa tutte le coppie, ma la funzione filtra le vive
             dummy_snapshot_writer(pairs, t_sec)
 
         # 2) INTEGRAZIONE da t → t + dt
         for i, pair in enumerate(pairs):
             if step_idx < idx_start[i]:
+                continue
+
+            # se la coppia è già morta, non integriamo
+            if (not pair.p1.alive) or (not pair.p2.alive):
                 continue
 
             integrator.step_pair(pair, t_sec)

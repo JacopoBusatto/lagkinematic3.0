@@ -6,21 +6,22 @@ from dataclasses import dataclass
 
 METERS_PER_DEGREE_LAT = 111_039.0  # ~metri per grado di latitudine (coerente con legacy C++)
 
-
 @dataclass(frozen=True)
 class LonLatDomain:
     """
-    Definisce il dominio longitudine del modello, usato per il wrapping periodico.
-    Esempi:
-        LonLatDomain(lon_min=-180.0, lon_max=180.0)
-        LonLatDomain(lon_min=0.0, lon_max=360.0)
+    Dominio geografico in longitudine e latitudine.
+    - lon_min, lon_max permettono wrapping periodico solo in lon
+    - lat_min, lat_max sono sempre rigidi (nessun wrapping ai poli)
     """
     lon_min: float
     lon_max: float
+    lat_min: float
+    lat_max: float
 
     @property
     def width(self) -> float:
         return self.lon_max - self.lon_min
+
 
 
 def displace_lonlat(

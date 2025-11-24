@@ -4,7 +4,7 @@ run:
   dt_seconds: 1800
   snapshots_seconds: 1800
   backtrajectory: false
-  time_loops: 0         # 0 = niente loop; >0 = ripeti N cicli temporali dei file
+  time_loops: 0
   output:
     dir: "./OUT_DEV_LIST/"
     format: "parquet"
@@ -33,5 +33,10 @@ starts:
 output:
   dir: "./OUT_DEV_LIST/"
   format: "parquet"
-  mode: "steps"            # "steps" | "snaps" | "steps_and_snaps"
-  steps_layout: "time"     # (per ora fisso "time")
+  mode: "steps"
+  steps_layout: "time"
+
+mask:
+  enabled: true      # attiva la maschera
+  threshold: 0.5     # se sample_mask < threshold → particella uccisa
+  speed_min: 0.0     # speed>speed_min & finite = mare (per tutte le depth)

@@ -1,5 +1,6 @@
 # python/lagkinematic/integration.py
 from __future__ import annotations
+import numpy as np
 
 from dataclasses import dataclass
 from typing import Protocol, Optional
@@ -8,6 +9,14 @@ from .geometry import displace_lonlat, wrap_longitude, LonLatDomain
 
 
 # ---------- Interfacce / protocolli ----------
+def _is_longitude_periodic(domain: LonLatDomain) -> bool:
+    """
+    Ritorna True se il dominio è 'globale' in longitudine e quindi
+    ha senso applicare condizioni periodiche.
+    Usiamo una soglia larga ( >350° ) per coprire casi tipo 0.5–359.5.
+    """
+    lon_range = domain.lon_max - domain.lon_min
+    return lon_range > 350.0
 
 class VelocitySampler(Protocol):
     """
@@ -71,19 +80,8 @@ class ParticlePairState:
 
 
 # ---------- Integratore Euler ----------
-
 @dataclass
 class EulerIntegrator:
-    """
-    Integra le traiettorie con schema di Eulero esplicito in lon/lat/depth.
-
-    - sampler: RegularLatLonSampler (u, v, w) risolto
-    - domain: dominio longitudinale per il wrapping
-    - dt: passo temporale in secondi
-    - mask: maschera terra/mare (opzionale)
-    - mask_threshold: soglia minima per considerare "mare"
-    - subgrid: modello cinematico (opzionale)
-    """
     sampler: VelocitySampler
     domain: LonLatDomain
     dt: float
@@ -91,25 +89,41 @@ class EulerIntegrator:
     mask_threshold: float = 0.5
     subgrid: Optional[SubgridModel] = None
 
+    def apply_initial_mask(self, pairs: list[ParticlePairState]) -> None:
+        """
+        Uccide le particelle che iniziano sulla terra.
+        Se almeno UNA particella in una coppia è su terra, la coppia viene
+        considerata morta: uccidiamo ENTRAMBE.
+        Va chiamato PRIMA del primo step, prima del primo writer.
+        """
+        if self.mask is None:
+            return
+
+        for pair in pairs:
+            # calcola il valore di maschera per entrambe
+            m1 = self.mask.sample_mask(pair.p1.lon, pair.p1.lat, pair.p1.depth)
+            m2 = self.mask.sample_mask(pair.p2.lon, pair.p2.lat, pair.p2.depth)
+
+            if (m1 < self.mask_threshold) or (m2 < self.mask_threshold):
+                pair.p1.kill()
+                pair.p2.kill()
+
+
     def _step_one_particle(self, p: ParticleState, t: float) -> None:
-        """
-        Aggiorna IN-PLACE la particella p di un passo dt.
-        """
         if not p.alive:
             return
 
-        # 1) Controllo maschera terra/mare (semplice 0-1 o continuo)
+        # 1) Controllo maschera terra/mare
         if self.mask is not None:
-            m_val = self.mask.sample_mask(p.lon, p.lat)
+            m_val = self.mask.sample_mask(p.lon, p.lat, p.depth)
             if m_val < self.mask_threshold:
-                # Particella "assorbita" dalla terra: la marchiamo come morta.
                 p.kill()
                 return
 
         # 2) Velocità risolta (u,v,w) dal sampler
         u_res, v_res, w_res = self.sampler.sample(p.lon, p.lat, p.depth, t)
 
-        # 3) Velocità subgrid (cinematica), se presente
+        # 3) Subgrid
         if self.subgrid is not None:
             u_sgs, v_sgs, w_sgs = self.subgrid.velocity(p.lon, p.lat, p.depth, t)
         else:
@@ -132,9 +146,22 @@ class EulerIntegrator:
             dx_m=dx,
             dy_m=dy,
         )
-        # wrapping periodico della longitudine in base al dominio
-        lon_new = wrap_longitude(lon_new, self.domain)
 
+        # 5bis) Trattamento bordo longitudinale:
+        #       - se dominio "globale" → condizioni periodiche
+        #       - se dominio regionale → kill se esce dal range lon/lat
+        if _is_longitude_periodic(self.domain):
+            # wrapping periodico della longitudine
+            lon_new = wrap_longitude(lon_new, self.domain)
+        else:
+            # dominio non periodico: se esce, la particella muore
+            if lon_new < self.domain.lon_min or lon_new > self.domain.lon_max:
+                p.kill()
+                return
+        if lat_new < self.domain.lat_min or lat_new > self.domain.lat_max:
+            p.kill()
+            return
+        
         # 6) Aggiornamento profondità (qui semplicemente Z + w*dt)
         depth_new = p.depth + dz
 
@@ -146,8 +173,23 @@ class EulerIntegrator:
     def step_pair(self, pair: ParticlePairState, t: float) -> None:
         """
         Esegue un passo di integrazione per la coppia al tempo globale t (secondi).
-        Dopo il passo, pair.t viene aggiornato a t + dt.
+        Regola FSLE-style: se UNA delle due particelle muore (terra o bordo),
+        la coppia viene considerata morta → entrambe killate e nessun update di t.
         """
+        # se la coppia è già "morta" (una delle due non è viva), non facciamo nulla
+        if (not pair.p1.alive) or (not pair.p2.alive):
+            return
+
+        # integriamo entrambe
         self._step_one_particle(pair.p1, t)
         self._step_one_particle(pair.p2, t)
+
+        # dopo lo step, se una è morta → kill anche l'altra
+        if (not pair.p1.alive) or (not pair.p2.alive):
+            pair.p1.kill()
+            pair.p2.kill()
+            # non aggiorniamo pair.t: la coppia è finita qui
+            return
+
+        # se entrambe ancora vive → aggiorniamo il tempo della coppia
         pair.t = t + self.dt

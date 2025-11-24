@@ -40,3 +40,5 @@ mask:
   enabled: true      # attiva la maschera
   threshold: 0.5     # se sample_mask < threshold → particella uccisa
   speed_min: 0.0     # speed>speed_min & finite = mare (per tutte le depth)
+  beaching_mode: "kill"  # "kill" oppure "bounce"
+  bottom_mode: "kill"    # "kill" oppure "bounce"

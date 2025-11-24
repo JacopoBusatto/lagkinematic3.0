@@ -105,6 +105,10 @@ def main(config: str):
         mask_sampler = None
         mask_threshold = 0.5
 
+    # Modalità di gestione spiaggiamento e fondale
+    beaching_mode = mask_cfg.get("beaching_mode", "kill")  # "kill" o "bounce"
+    bottom_mode = mask_cfg.get("bottom_mode", "kill")      # "kill" o "bounce"
+
     # 3) Lettura STARTS
     try:
         starts_data, starts_info = read_starts(cfg["starts"]["file"], expected_cols=8)
@@ -274,6 +278,18 @@ def main(config: str):
         lat_max=float(np.nanmax(lats)),
     )
 
+    # Profondità massima globale (se c'è un asse depth)
+    depth_name = cfg["domain"]["coords"].get("depth", None)
+    max_depth = None
+    if depth_name is not None:
+        with xr.open_dataset(first_file, decode_times=False) as ds:
+            if depth_name in ds:
+                depth_vals = ds[depth_name].values
+                if np.ndim(depth_vals) == 1:
+                    max_depth = float(np.nanmax(depth_vals))
+
+
+
     # Modello subgrid (per ora assente)
     subgrid_model = None
 
@@ -285,6 +301,9 @@ def main(config: str):
         mask=mask_sampler,
         mask_threshold=mask_threshold,
         subgrid=subgrid_model,
+        beaching_mode=beaching_mode,
+        bottom_mode=bottom_mode,
+        max_depth=max_depth,
     )
 
     # 🔴 Kill iniziale: uccidi le coppie che partono su terra PRIMA di scrivere qualsiasi output

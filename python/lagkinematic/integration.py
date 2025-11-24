@@ -88,6 +88,10 @@ class EulerIntegrator:
     mask: Optional[MaskSampler] = None
     mask_threshold: float = 0.5
     subgrid: Optional[SubgridModel] = None
+    beaching_mode: str = "kill"   # "kill" oppure "bounce"
+    bottom_mode: str = "kill"     # "kill" oppure "bounce"
+    max_depth: Optional[float] = None  # profondità max globale (grezza)
+
 
     def apply_initial_mask(self, pairs: list[ParticlePairState]) -> None:
         """
@@ -113,33 +117,29 @@ class EulerIntegrator:
         if not p.alive:
             return
 
-        # 1) Controllo maschera terra/mare
-        if self.mask is not None:
-            m_val = self.mask.sample_mask(p.lon, p.lat, p.depth)
-            if m_val < self.mask_threshold:
-                p.kill()
-                return
+        # Salva posizione precedente (serve per il "bounce" costiero)
+        old_lon = p.lon
+        old_lat = p.lat
+        old_depth = p.depth
 
-        # 2) Velocità risolta (u,v,w) dal sampler
+        # 1) Velocità risolta (u,v,w)
         u_res, v_res, w_res = self.sampler.sample(p.lon, p.lat, p.depth, t)
 
-        # 3) Subgrid
+        # 2) Subgrid
         if self.subgrid is not None:
             u_sgs, v_sgs, w_sgs = self.subgrid.velocity(p.lon, p.lat, p.depth, t)
         else:
             u_sgs = v_sgs = w_sgs = 0.0
 
-        # Velocità totale
         u_tot = u_res + u_sgs
         v_tot = v_res + v_sgs
         w_tot = w_res + w_sgs
 
-        # 4) Spostamento in metri
         dx = u_tot * self.dt
         dy = v_tot * self.dt
         dz = w_tot * self.dt
 
-        # 5) Aggiornamento lon/lat con formula legacy (via helper)
+        # 3) Aggiornamento lon/lat con formula legacy
         lon_new, lat_new = displace_lonlat(
             lon_deg=p.lon,
             lat_deg=p.lat,
@@ -147,28 +147,54 @@ class EulerIntegrator:
             dy_m=dy,
         )
 
-        # 5bis) Trattamento bordo longitudinale:
-        #       - se dominio "globale" → condizioni periodiche
-        #       - se dominio regionale → kill se esce dal range lon/lat
+        # 3bis) Trattamento bordo longitudinale
         if _is_longitude_periodic(self.domain):
-            # wrapping periodico della longitudine
             lon_new = wrap_longitude(lon_new, self.domain)
         else:
-            # dominio non periodico: se esce, la particella muore
             if lon_new < self.domain.lon_min or lon_new > self.domain.lon_max:
                 p.kill()
                 return
+
+        # 3ter) Trattamento bordo latitudinale (mai periodico)
         if lat_new < self.domain.lat_min or lat_new > self.domain.lat_max:
             p.kill()
             return
-        
-        # 6) Aggiornamento profondità (qui semplicemente Z + w*dt)
+
+        # 4) Aggiornamento profondità provvisorio
         depth_new = p.depth + dz
 
-        # 7) Scrittura stato aggiornato
+        # 4bis) Fondale (se max_depth è noto)
+        if (self.max_depth is not None) and (depth_new > self.max_depth):
+            if self.bottom_mode == "kill":
+                p.kill()
+                return
+            elif self.bottom_mode == "bounce":
+                # "rimbalzo" semplice tipo specchio sul fondo globale
+                depth_new = 2.0 * self.max_depth - depth_new
+
+        # 5) Controllo maschera terra/mare sul NUOVO punto
+        if self.mask is not None:
+            m_val = self.mask.sample_mask(lon_new, lat_new, depth_new)
+            if m_val < self.mask_threshold:
+                if self.beaching_mode == "kill":
+                    p.kill()
+                    return
+                elif self.beaching_mode == "bounce":
+                    # rimani alla posizione precedente (niente step)
+                    p.lon = old_lon
+                    p.lat = old_lat
+                    p.depth = old_depth
+                    return
+                else:
+                    # fallback sicuro
+                    p.kill()
+                    return
+
+        # 6) Se tutto è andato bene, scrivi stato aggiornato
         p.lon = lon_new
         p.lat = lat_new
         p.depth = depth_new
+
 
     def step_pair(self, pair: ParticlePairState, t: float) -> None:
         """

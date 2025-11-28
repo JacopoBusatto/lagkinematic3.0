@@ -14,6 +14,14 @@ class RegularLatLonMaskSampler:
         self.lat_name = lat_name
         self.depth_name = depth_name
 
+        # cache coordinate e valori per interp manuale
+        dims_order = [lat_name, lon_name] if depth_name is None else [depth_name, lat_name, lon_name]
+        mask_std = mask_da.transpose(*dims_order)
+        self._values = np.nan_to_num(mask_std.values, nan=0.0)
+        self._lon = mask_std[lon_name].values
+        self._lat = mask_std[lat_name].values
+        self._depth = mask_std[depth_name].values if depth_name is not None else None
+
     @classmethod
     def from_first_file(cls, cfg):
         """
@@ -53,17 +61,41 @@ class RegularLatLonMaskSampler:
         Restituisce la maschera interpolata in (lon,lat[,depth]).
         Ritorna 0.0 fuori dominio.
         """
-        coords = {
-            self.lon_name: lon,
-            self.lat_name: lat,
-        }
+        if (lon < self._lon[0]) or (lon > self._lon[-1]) or (lat < self._lat[0]) or (lat > self._lat[-1]):
+            return 0.0
 
-        if self.depth_name is not None:
-            coords[self.depth_name] = depth
+        def _find_bracketing_idx(vec: np.ndarray, x: float) -> tuple[int, float]:
+            i = int(np.searchsorted(vec, x) - 1)
+            if i < 0:
+                return 0, 0.0
+            if i >= len(vec) - 1:
+                return len(vec) - 2, 1.0
+            x0, x1 = float(vec[i]), float(vec[i + 1])
+            a = 0.0 if x1 == x0 else (x - x0) / (x1 - x0)
+            return i, float(np.clip(a, 0.0, 1.0))
 
-        out = self.mask.interp(coords, method="linear").fillna(0.0)
-        values = out.values
+        def _bilinear_xy(A: np.ndarray, lon_val: float, lat_val: float) -> float:
+            j, ay = _find_bracketing_idx(self._lat, lat_val)
+            i, ax = _find_bracketing_idx(self._lon, lon_val)
+            f00 = float(A[j, i])
+            f10 = float(A[j, i + 1])
+            f01 = float(A[j + 1, i])
+            f11 = float(A[j + 1, i + 1])
+            return (
+                (1 - ax) * (1 - ay) * f00
+                + ax * (1 - ay) * f10
+                + (1 - ax) * ay * f01
+                + ax * ay * f11
+            )
 
-        if np.isscalar(values):
-            return float(values)
-        return values.astype(float)
+        if self._depth is None:
+            val = _bilinear_xy(self._values, lon, lat)
+        elif self._values.shape[0] == 1:
+            val = _bilinear_xy(self._values[0, ...], lon, lat)
+        else:
+            k, az = _find_bracketing_idx(self._depth, depth)
+            v0 = _bilinear_xy(self._values[k, ...], lon, lat)
+            v1 = _bilinear_xy(self._values[k + 1, ...], lon, lat)
+            val = (1 - az) * v0 + az * v1
+
+        return float(val)

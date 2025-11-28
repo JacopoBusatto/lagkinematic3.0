@@ -6,6 +6,8 @@ class RegularLatLonMaskSampler:
     Maschera terra/mare basata sui NaN del campo U.
     - 1 = mare (U non è NaN)
     - 0 = terra (U è NaN)
+
+    depth segue la convenzione positiva verso il basso (0 = superficie, >0 sotto).
     """
 
     def __init__(self, mask_da: xr.DataArray, lon_name: str, lat_name: str, depth_name: str | None):

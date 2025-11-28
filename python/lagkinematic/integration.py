@@ -21,7 +21,8 @@ def _is_longitude_periodic(domain: LonLatDomain) -> bool:
 class VelocitySampler(Protocol):
     """
     Interfaccia minimale per il nostro RegularLatLonSampler.
-    Deve restituire (u, v, w) in m/s dato (lon, lat, depth, time).
+    Deve restituire (u, v, w) in m/s dato (lon, lat, depth, time),
+    dove depth è positivo verso il basso (0 = superficie, >0 sotto).
     """
 
     def sample(self, lon_deg: float, lat_deg: float, depth_m: float, t: float) -> tuple[float, float, float]:
@@ -32,6 +33,7 @@ class MaskSampler(Protocol):
     """
     Interfaccia per la maschera terra/mare.
     Deve restituire un valore scalare (es. 0/1 o fra 0 e 1) dato (lon, lat).
+    depth_m è positivo verso il basso (0 = superficie).
     """
 
     def sample_mask(self, lon_deg: float, lat_deg: float, depth_m: float) -> float:
@@ -41,7 +43,8 @@ class MaskSampler(Protocol):
 class BottomSampler(Protocol):
     """
     Interfaccia per la batimetria locale.
-    Deve restituire la profondità massima disponibile in metri (>=0) dato (lon, lat).
+    Deve restituire la profondità massima disponibile in metri (>=0) dato (lon, lat),
+    con profondità positiva verso il basso (0 = superficie, >0 fondale).
     """
 
     def sample_bottom(self, lon_deg: float, lat_deg: float) -> float:
@@ -70,7 +73,7 @@ class ParticleState:
     id: int
     lon: float  # gradi
     lat: float  # gradi
-    depth: float  # metri (negativi in acqua, se segui il legacy)
+    depth: float  # depth in meters, positive downward (0 = surface, >0 below surface)
     alive: bool = True
 
     def kill(self) -> None:
@@ -181,6 +184,7 @@ class EulerIntegrator:
         else:
             local_bottom = self.max_depth
 
+        # Profondità positiva verso il basso; local_bottom è la profondità massima consentita in (lon, lat).
         if (local_bottom is not None) and (depth_new > local_bottom):
             if self.bottom_mode == "kill":
                 p.kill()

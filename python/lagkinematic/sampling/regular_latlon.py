@@ -177,6 +177,8 @@ class RegularLatLonSampler:
           - time-linear tra file k e k+1
           - bilinear in XY
           - linear in Z se depth è presente
+
+        depth è positivo verso il basso (0 = superficie, >0 sotto).
         """
         k, kp1, _ = self._ensure_time_bracket(t_ns)
         assert self._ds_k is not None and self._ds_kp1 is not None

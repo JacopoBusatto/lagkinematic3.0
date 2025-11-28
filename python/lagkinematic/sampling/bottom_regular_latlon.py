@@ -15,6 +15,8 @@ class RegularLatLonBottomSampler:
     - Se è presente un asse di profondità, usa il primo file NetCDF e il campo U
       per individuare il livello valido più profondo (non-NaN) per ciascuna cella.
     - In assenza dell'asse di profondità, restituisce 0 ovunque.
+
+    Convenzione: profondità positive verso il basso (0 = superficie, >0 fondale).
     """
 
     bottom: xr.DataArray

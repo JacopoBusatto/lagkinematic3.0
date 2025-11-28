@@ -19,6 +19,7 @@ from lagkinematic.utils import is_snapshot_time
 
 from lagkinematic.sampling.regular_latlon import RegularLatLonSampler
 from lagkinematic.sampling.mask_regular_latlon import RegularLatLonMaskSampler
+from lagkinematic.sampling.bottom_regular_latlon import RegularLatLonBottomSampler
 
 # --- MPI fallback ---
 try:
@@ -104,6 +105,9 @@ def main(config: str):
     else:
         mask_sampler = None
         mask_threshold = 0.5
+
+    # Sampler batimetrico opzionale (se esiste un asse depth)
+    bottom_sampler = None
 
     # Modalità di gestione spiaggiamento e fondale
     beaching_mode = mask_cfg.get("beaching_mode", "kill")  # "kill" o "bounce"
@@ -282,11 +286,8 @@ def main(config: str):
     depth_name = cfg["domain"]["coords"].get("depth", None)
     max_depth = None
     if depth_name is not None:
-        with xr.open_dataset(first_file, decode_times=False) as ds:
-            if depth_name in ds:
-                depth_vals = ds[depth_name].values
-                if np.ndim(depth_vals) == 1:
-                    max_depth = float(np.nanmax(depth_vals))
+        bottom_sampler = RegularLatLonBottomSampler.from_first_file(cfg)
+        max_depth = float(np.nanmax(bottom_sampler.bottom.values))
 
 
 
@@ -303,6 +304,7 @@ def main(config: str):
         subgrid=subgrid_model,
         beaching_mode=beaching_mode,
         bottom_mode=bottom_mode,
+        bottom=bottom_sampler,
         max_depth=max_depth,
     )
 

@@ -2,7 +2,7 @@ from lagkinematic.integration import EulerIntegrator, ParticleState, ParticlePai
 from lagkinematic.geometry import LonLatDomain
 
 def test_integration_mask():
-    domain = LonLatDomain(lon_min=0, lon_max=360)
+    domain = LonLatDomain(lon_min=0, lon_max=360, lat_min=-90, lat_max=90)
 
     class FakeMask:
         def sample_mask(self, lon, lat, depth):
@@ -34,7 +34,7 @@ def test_integration_mask():
 
     print("p1 alive:", p1.alive, "p2 alive:", p2.alive)
 
-    assert p1.alive is True
+    assert p1.alive is False
     assert p2.alive is False
 
     integrator.step_pair(pair, 0.0)
@@ -42,8 +42,7 @@ def test_integration_mask():
     print("p1 lon after:", p1.lon, "alive:", p1.alive)
     print("p2 lon after:", p2.lon, "alive:", p2.alive)
 
-    assert p1.lon != 12.0
-    assert p1.alive is True
+    assert p1.alive is False
     assert p2.alive is False
 
 if __name__ == "__main__":

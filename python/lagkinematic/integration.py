@@ -34,7 +34,17 @@ class MaskSampler(Protocol):
     Deve restituire un valore scalare (es. 0/1 o fra 0 e 1) dato (lon, lat).
     """
 
-    def sample_mask(self, lon_deg: float, lat_deg: float) -> float:
+    def sample_mask(self, lon_deg: float, lat_deg: float, depth_m: float) -> float:
+        ...
+
+
+class BottomSampler(Protocol):
+    """
+    Interfaccia per la batimetria locale.
+    Deve restituire la profondità massima disponibile in metri (>=0) dato (lon, lat).
+    """
+
+    def sample_bottom(self, lon_deg: float, lat_deg: float) -> float:
         ...
 
 
@@ -90,6 +100,7 @@ class EulerIntegrator:
     subgrid: Optional[SubgridModel] = None
     beaching_mode: str = "kill"   # "kill" oppure "bounce"
     bottom_mode: str = "kill"     # "kill" oppure "bounce"
+    bottom: Optional[BottomSampler] = None  # batimetria locale
     max_depth: Optional[float] = None  # profondità max globale (grezza)
 
 
@@ -163,14 +174,21 @@ class EulerIntegrator:
         # 4) Aggiornamento profondità provvisorio
         depth_new = p.depth + dz
 
-        # 4bis) Fondale (se max_depth è noto)
-        if (self.max_depth is not None) and (depth_new > self.max_depth):
+        # 4bis) Fondale (batimetria locale o massimo globale)
+        local_bottom: Optional[float]
+        if self.bottom is not None:
+            local_bottom = float(self.bottom.sample_bottom(lon_new, lat_new))
+        else:
+            local_bottom = self.max_depth
+
+        if (local_bottom is not None) and (depth_new > local_bottom):
             if self.bottom_mode == "kill":
                 p.kill()
                 return
             elif self.bottom_mode == "bounce":
-                # "rimbalzo" semplice tipo specchio sul fondo globale
-                depth_new = 2.0 * self.max_depth - depth_new
+                # Riflesso sul fondale locale: rimani entro H(x,y)
+                overshoot = depth_new - local_bottom
+                depth_new = max(0.0, local_bottom - overshoot)
 
         # 5) Controllo maschera terra/mare sul NUOVO punto
         if self.mask is not None:

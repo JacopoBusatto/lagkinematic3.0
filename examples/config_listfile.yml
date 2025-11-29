@@ -22,3 +22,9 @@ domain:
 starts:
   file: "starts_dummy.dat"
   format: "pairs_xyz_age#col8_preserve"
+
+mask:
+  enabled: true              # use NaN-based land/sea mask from U field
+  threshold: 0.5             # mask >= threshold => sea; mask < threshold => land
+  beaching_mode: "kill"     # "off" | "kill" | "bounce" (default "kill" if omitted)
+  bottom_mode: "bounce"     # "off" | "kill" | "bounce" (default "kill" if omitted)

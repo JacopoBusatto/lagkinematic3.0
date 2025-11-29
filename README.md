@@ -45,6 +45,15 @@ This version does **not** include any C++ code:
 
 ---
 
+## 🧭 Mask & bottom handling
+- Land/sea masking uses NaN values from the U field (`RegularLatLonMaskSampler`) with a configurable threshold (mask ≥ threshold = sea).
+- The local bottom depth H(x,y) is inferred from the deepest valid U level via `RegularLatLonBottomSampler`.
+- `beaching_mode` controls coast interaction: `"off"` ignores the land mask, `"kill"` removes particles that start or move onto land (default), `"bounce"` reverts to the previous position when hitting land.
+- `bottom_mode` controls bathymetry: `"off"` ignores the bottom (depth can exceed H), `"kill"` removes particles crossing H (default), `"bounce"` mirrors the step at H so depth stays ≤ H.
+- Depth is in meters, positive downward (`0` = surface, `>0` below surface).
+
+---
+
 ## 🗂 Repository Structure
 
 lagkinematic3.0/

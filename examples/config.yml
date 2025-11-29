@@ -26,3 +26,9 @@ domain:
 starts:
   file: "/home/jbusatto/SIMULATIONS/4DMED_SCIENTIFIC2/STARTS/start_PROTOCOLLO_CUTTITTA_1-24_100m_16P_gaussian.dat"
   format: "pairs_xyz_age#col8_preserve"
+
+mask:
+  enabled: true              # use NaN-based land/sea mask from U field
+  threshold: 0.5             # mask >= threshold => sea; mask < threshold => land
+  beaching_mode: "kill"     # "off" | "kill" | "bounce" (default "kill" if omitted)
+  bottom_mode: "kill"       # "off" | "kill" | "bounce" (default "kill" if omitted)

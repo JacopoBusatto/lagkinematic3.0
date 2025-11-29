@@ -37,8 +37,8 @@ output:
   steps_layout: "time"
 
 mask:
-  enabled: true      # attiva la maschera
-  threshold: 0.5     # se sample_mask < threshold → particella uccisa
-  speed_min: 0.0     # speed>speed_min & finite = mare (per tutte le depth)
-  beaching_mode: "kill"  # "kill" oppure "bounce"
-  bottom_mode: "kill"    # "kill" oppure "bounce"
+  enabled: true              # use NaN-based land/sea mask from U field
+  threshold: 0.5             # mask >= threshold => sea; mask < threshold => land
+  speed_min: 0.0             # speed>speed_min & finite = sea (all depths)
+  beaching_mode: "bounce"   # "off" | "kill" | "bounce" (default "kill" if omitted)
+  bottom_mode: "kill"       # "off" | "kill" | "bounce" (default "kill" if omitted)

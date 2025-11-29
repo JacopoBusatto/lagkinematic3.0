@@ -17,6 +17,8 @@ class RegularLatLonBottomSampler:
     - In assenza dell'asse di profondità, restituisce 0 ovunque.
 
     Convenzione: profondità positive verso il basso (0 = superficie, >0 fondale).
+    L'integratore può gestire il fondale con bottom_mode: "off" (disabilita il
+    controllo), "kill" (uccide) o "bounce" (riflette).
     """
 
     bottom: xr.DataArray

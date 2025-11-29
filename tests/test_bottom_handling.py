@@ -74,6 +74,30 @@ def test_bottom_bounce_mode():
     assert p1.depth < 5.1
 
 
+def test_bottom_off_mode_allows_exceeding_depth():
+    domain = LonLatDomain(lon_min=0, lon_max=10, lat_min=0, lat_max=10)
+    sampler = FakeSampler(w=3.0)
+    bottom = FakeBottom(depth=2.0)
+
+    p1 = ParticleState(id=1, lon=1.0, lat=1.0, depth=1.5)
+    p2 = ParticleState(id=2, lon=1.0, lat=1.0, depth=1.5)
+    pair = ParticlePairState(id=0, p1=p1, p2=p2)
+
+    integrator = EulerIntegrator(
+        sampler=sampler,
+        domain=domain,
+        dt=1.0,
+        bottom=bottom,
+        bottom_mode="off",
+    )
+
+    integrator.step_pair(pair, t=0.0)
+
+    assert p1.alive is True
+    assert p2.alive is True
+    assert p1.depth > bottom.depth
+
+
 def test_apply_initial_mask_kills_on_land_even_with_bounce():
     domain = LonLatDomain(lon_min=0, lon_max=10, lat_min=0, lat_max=10)
     sampler = FakeSampler(w=0.0)

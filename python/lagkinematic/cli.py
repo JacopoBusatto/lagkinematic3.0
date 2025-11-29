@@ -110,8 +110,8 @@ def main(config: str):
     bottom_sampler = None
 
     # Modalità di gestione spiaggiamento e fondale
-    beaching_mode = mask_cfg.get("beaching_mode", "kill")  # "kill" o "bounce"
-    bottom_mode = mask_cfg.get("bottom_mode", "kill")      # "kill" o "bounce"
+    beaching_mode = mask_cfg.get("beaching_mode", "kill")  # "off" / "kill" / "bounce"
+    bottom_mode = mask_cfg.get("bottom_mode", "kill")      # "off" / "kill" / "bounce"
 
     # 3) Lettura STARTS
     try:
@@ -294,6 +294,8 @@ def main(config: str):
     # Modello subgrid (per ora assente)
     subgrid_model = None
 
+    # Nota: la profondità è positiva verso il basso; local_bottom è la profondità
+    # massima consentita in (lon, lat) e bottom_mode="off" disabilita il controllo.
     # Integratore Euler con sampler reale (adapter) + maschera opzionale
     integrator = EulerIntegrator(
         sampler=sampler,

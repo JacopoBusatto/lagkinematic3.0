@@ -33,7 +33,8 @@ class MaskSampler(Protocol):
     """
     Interfaccia per la maschera terra/mare.
     Deve restituire un valore scalare (es. 0/1 o fra 0 e 1) dato (lon, lat).
-    depth_m è positivo verso il basso (0 = superficie).
+    depth_m è positivo verso il basso (0 = superficie). Il comportamento rispetto
+    alla costa è controllato da beaching_mode ("off" / "kill" / "bounce").
     """
 
     def sample_mask(self, lon_deg: float, lat_deg: float, depth_m: float) -> float:
@@ -44,7 +45,9 @@ class BottomSampler(Protocol):
     """
     Interfaccia per la batimetria locale.
     Deve restituire la profondità massima disponibile in metri (>=0) dato (lon, lat),
-    con profondità positiva verso il basso (0 = superficie, >0 fondale).
+    con profondità positiva verso il basso (0 = superficie, >0 fondale). Il
+    comportamento rispetto al fondale è controllato da bottom_mode
+    ("off" / "kill" / "bounce").
     """
 
     def sample_bottom(self, lon_deg: float, lat_deg: float) -> float:
@@ -101,8 +104,8 @@ class EulerIntegrator:
     mask: Optional[MaskSampler] = None
     mask_threshold: float = 0.5
     subgrid: Optional[SubgridModel] = None
-    beaching_mode: str = "kill"   # "kill" oppure "bounce"
-    bottom_mode: str = "kill"     # "kill" oppure "bounce"
+    beaching_mode: str = "kill"   # "off" / "kill" / "bounce"
+    bottom_mode: str = "kill"     # "off" / "kill" / "bounce"
     bottom: Optional[BottomSampler] = None  # batimetria locale
     max_depth: Optional[float] = None  # profondità max globale (grezza)
 
@@ -113,8 +116,9 @@ class EulerIntegrator:
         Se almeno UNA particella in una coppia è su terra, la coppia viene
         considerata morta: uccidiamo ENTRAMBE.
         Va chiamato PRIMA del primo step, prima del primo writer.
+        Se beaching_mode è "off" o la maschera è assente, non fa nulla.
         """
-        if self.mask is None:
+        if self.mask is None or self.beaching_mode == "off":
             return
 
         for pair in pairs:
@@ -184,18 +188,20 @@ class EulerIntegrator:
         else:
             local_bottom = self.max_depth
 
-        # Profondità positiva verso il basso; local_bottom è la profondità massima consentita in (lon, lat).
-        if (local_bottom is not None) and (depth_new > local_bottom):
-            if self.bottom_mode == "kill":
-                p.kill()
-                return
-            elif self.bottom_mode == "bounce":
-                # Riflesso sul fondale locale: rimani entro H(x,y)
-                overshoot = depth_new - local_bottom
-                depth_new = max(0.0, local_bottom - overshoot)
+        # Profondità positiva verso il basso; local_bottom è la profondità massima
+        # consentita in (lon, lat). bottom_mode="off" disabilita questo controllo.
+        if self.bottom_mode != "off":
+            if (local_bottom is not None) and (depth_new > local_bottom):
+                if self.bottom_mode == "kill":
+                    p.kill()
+                    return
+                elif self.bottom_mode == "bounce":
+                    # Riflesso sul fondale locale: rimani entro H(x,y)
+                    overshoot = depth_new - local_bottom
+                    depth_new = max(0.0, local_bottom - overshoot)
 
         # 5) Controllo maschera terra/mare sul NUOVO punto
-        if self.mask is not None:
+        if self.mask is not None and self.beaching_mode != "off":
             m_val = self.mask.sample_mask(lon_new, lat_new, depth_new)
             if m_val < self.mask_threshold:
                 if self.beaching_mode == "kill":
@@ -206,10 +212,6 @@ class EulerIntegrator:
                     p.lon = old_lon
                     p.lat = old_lat
                     p.depth = old_depth
-                    return
-                else:
-                    # fallback sicuro
-                    p.kill()
                     return
 
         # 6) Se tutto è andato bene, scrivi stato aggiornato

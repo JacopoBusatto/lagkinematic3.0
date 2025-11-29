@@ -8,6 +8,9 @@ class RegularLatLonMaskSampler:
     - 0 = terra (U è NaN)
 
     depth segue la convenzione positiva verso il basso (0 = superficie, >0 sotto).
+    L'uso della maschera nell'integratore può essere controllato con
+    beaching_mode: "off" (ignora la maschera), "kill" (uccidi) o "bounce"
+    (riflessione).
     """
 
     def __init__(self, mask_da: xr.DataArray, lon_name: str, lat_name: str, depth_name: str | None):

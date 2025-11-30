@@ -342,13 +342,11 @@ def main(config: str):
             f"p2=({p0.p2.lon:.4f},{p0.p2.lat:.4f})"
         )
 
-    # Mini-loop di integrazione: per ora solo pochi step di test
-    n_test_steps = min(3, n_steps)
-
+    # Loop di integrazione completo
     if RANK == 0:
-        click.echo(f"[lagk] Eseguo integrazione di test: n_test_steps={n_test_steps} dt={dt_s}s")
+        click.echo(f"[lagk] Eseguo integrazione: n_steps={n_steps} dt={dt_s}s")
 
-    for step_idx in range(n_test_steps):
+    for step_idx in range(n_steps):
         t_sec = step_idx * dt_s
 
         # 1) OUTPUT allo stato corrente (prima dell'integrazione)
@@ -389,4 +387,4 @@ def main(config: str):
     chunk_manager.finalize()
 
     if RANK == 0:
-        click.echo("[lagk] Integrazione Euler di test completata (RegularLatLonSampler + parquet writer)")
+        click.echo("[lagk] Integrazione Euler completata (RegularLatLonSampler + parquet writer)")

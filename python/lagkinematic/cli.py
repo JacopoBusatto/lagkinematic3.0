@@ -1,5 +1,6 @@
 from __future__ import annotations
 import sys, pathlib, yaml, click
+from typing import Optional
 from datetime import datetime, timedelta
 import numpy as np
 import xarray as xr
@@ -47,6 +48,72 @@ def _parse_duration_seconds(s: str) -> int:
     if s.endswith("d") and s[:-1].isdigit():
         return int(s[:-1]) * 86400
     raise ValueError(f"Formato duration non supportato: {s}")
+
+
+def resolve_output_intervals(run_cfg: dict) -> tuple[int, bool, Optional[int]]:
+    """Resolve output intervals for steps and optional diagnostic snapshots.
+
+    Parameters
+    ----------
+    run_cfg
+        The ``run`` section of the configuration dictionary.
+
+    Returns
+    -------
+    tuple
+        ``(steps_output_seconds, snaps_enabled, snaps_interval_seconds)``
+
+    Notes
+    -----
+    ``steps_output_seconds`` falls back to ``snapshots_seconds`` for backward
+    compatibility. If diagnostic snapshots are enabled, the provided interval
+    must be greater than or equal to, and an integer multiple of,
+    ``steps_output_seconds``.
+    """
+
+    steps_output_seconds = run_cfg.get("steps_output_seconds")
+    if steps_output_seconds is None:
+        steps_output_seconds = run_cfg.get("snapshots_seconds")
+
+    if steps_output_seconds is None:
+        click.echo(
+            "[errore] run.steps_output_seconds non impostato e nessun snapshots_seconds di fallback",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    steps_output_seconds = int(steps_output_seconds)
+
+    snaps_cfg = run_cfg.get("snaps", {}) or {}
+    snaps_enabled = bool(snaps_cfg.get("enabled", False))
+    snaps_interval_seconds_raw = snaps_cfg.get("interval_seconds")
+    snaps_interval_seconds: Optional[int] = (
+        int(snaps_interval_seconds_raw) if snaps_interval_seconds_raw is not None else None
+    )
+
+    if snaps_enabled:
+        if snaps_interval_seconds is None:
+            click.echo(
+                "[errore] snaps.enabled=true ma manca snaps.interval_seconds",
+                err=True,
+            )
+            raise SystemExit(1)
+
+        if snaps_interval_seconds < steps_output_seconds:
+            click.echo(
+                "[errore] snaps.interval_seconds deve essere >= steps_output_seconds",
+                err=True,
+            )
+            raise SystemExit(1)
+
+        if (snaps_interval_seconds % steps_output_seconds) != 0:
+            click.echo(
+                "[errore] snaps.interval_seconds deve essere multiplo di steps_output_seconds",
+                err=True,
+            )
+            raise SystemExit(1)
+
+    return steps_output_seconds, snaps_enabled, snaps_interval_seconds
 
 @click.command()
 @click.option(
@@ -132,8 +199,23 @@ def main(config: str):
     dt_s = int(cfg["run"]["dt_seconds"])
     dur_s = _parse_duration_seconds(cfg["run"]["duration"])
     n_steps = (dur_s // dt_s) + 1
-    snap_s = int(cfg["run"]["snapshots_seconds"])
-    snaps = list(range(0, n_steps * dt_s + 1, snap_s))
+
+    (
+        steps_output_seconds,
+        snaps_enabled,
+        snaps_interval_seconds,
+    ) = resolve_output_intervals(cfg["run"])
+
+    cfg["run"]["steps_output_seconds"] = steps_output_seconds
+    cfg["run"].setdefault("snapshots_seconds", steps_output_seconds)
+    cfg["run"].setdefault("snaps", {})
+
+    steps_outputs = list(range(0, n_steps * dt_s + 1, steps_output_seconds))
+    diagnostic_snaps = (
+        list(range(0, n_steps * dt_s + 1, snaps_interval_seconds))
+        if snaps_enabled and snaps_interval_seconds is not None
+        else []
+    )
     # 4bis) Griglia temporale globale di integrazione
     t_grid, t_offs = build_time_grid(cfg["run"]["start"], cfg["run"]["duration"], dt_s)
 
@@ -158,8 +240,14 @@ def main(config: str):
     meta = {
         "n_steps": int(n_steps),
         "dt_seconds": dt_s,
-        "snapshots_seconds": snap_s,
-        "estimated_snapshots": len(snaps),
+        "steps_output_seconds": steps_output_seconds,
+        "snapshots_seconds": steps_output_seconds,
+        "estimated_steps_outputs": len(steps_outputs),
+        "diagnostic_snapshots": {
+            "enabled": snaps_enabled,
+            "interval_seconds": snaps_interval_seconds,
+            "estimated": len(diagnostic_snaps),
+        },
         "first_file_checked": info["file"],
         "dims_first_file": info["dims"],
         "dtypes_first_file": info["dtypes"],
@@ -202,7 +290,9 @@ def main(config: str):
     if RANK == 0:
         click.echo(f"[lagk] ranks={SIZE}")
         click.echo(f"  start={cfg['run']['start']} duration={cfg['run']['duration']} dt={cfg['run']['dt_seconds']}s")
-        click.echo(f"  snapshots_every={cfg['run']['snapshots_seconds']}s back={cfg['run']['backtrajectory']}")
+        click.echo(
+            f"  steps_output_every={steps_output_seconds}s back={cfg['run']['backtrajectory']}"
+        )
         click.echo(f"  domain={cfg['domain']['type']}")
         click.echo(f"  coords: lon={cfg['domain']['coords']['lon']} lat={cfg['domain']['coords']['lat']} depth={cfg['domain']['coords'].get('depth')}")
         uvw = cfg['domain']['velocity']
@@ -215,7 +305,13 @@ def main(config: str):
         click.echo(f"  dims={info['dims']}")
         click.echo(f"  dtypes={info['dtypes']}")
         click.echo(f"  steps={n_steps} (dt={dt_s}s, duration={cfg['run']['duration']})")
-        click.echo(f"  snapshots≈{len(snaps)} (ogni {snap_s}s)")
+        click.echo(f"  steps_output≈{len(steps_outputs)} (ogni {steps_output_seconds}s)")
+        if snaps_enabled and snaps_interval_seconds is not None:
+            click.echo(
+                f"  diagnostic_snapshots≈{len(diagnostic_snaps)} (ogni {snaps_interval_seconds}s)"
+            )
+        else:
+            click.echo("  diagnostic_snapshots=disabilitati")
         click.echo(f"  wrote initial positions → {written_path} (per-rank)")
         click.echo(f"  pairs_total={n_pairs_total}  distribuzione=~{n_pairs_total//SIZE}±1 per rank")
         click.echo(f"  time_axis: native_dt≈{native_dt_s:.1f}s  points={t_all.size}  cycles={n_cycles}")
@@ -350,7 +446,9 @@ def main(config: str):
         t_sec = step_idx * dt_s
 
         # 1) OUTPUT allo stato corrente (prima dell'integrazione)
-        if (t_sec % snap_s) == 0:
+        is_step_output_time = (t_sec % steps_output_seconds) == 0
+
+        if is_step_output_time:
             for i, pair in enumerate(pairs):
                 if step_idx < idx_start[i]:
                     continue
@@ -369,8 +467,10 @@ def main(config: str):
                 # scrittura singola
                 chunk_manager.add_step(pair)
 
-            # snapshot (stampa) – passa tutte le coppie, ma la funzione filtra le vive
-            dummy_snapshot_writer(pairs, t_sec)
+        if snaps_enabled and snaps_interval_seconds is not None:
+            if (t_sec % snaps_interval_seconds) == 0:
+                # snapshot (stampa) – passa tutte le coppie, ma la funzione filtra le vive
+                dummy_snapshot_writer(pairs, t_sec)
 
         # 2) INTEGRAZIONE da t → t + dt
         for i, pair in enumerate(pairs):

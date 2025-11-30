@@ -4,16 +4,21 @@
     "start": "2016-06-01",
     "duration": "3d",
     "dt_seconds": 1800,
-    "snapshots_seconds": 1800,
+    "steps_output_seconds": 1800,
     "backtrajectory": false,
     "time_loops": 0,
+    "snaps": {
+      "enabled": true,
+      "interval_seconds": 86400
+    },
     "output": {
       "dir": "C:\\Users\\Jacopo\\Documents\\Lagkinematic3.0\\OUT_DEV_LIST",
       "format": "parquet",
       "mode": "steps",
       "steps_layout": "time",
       "steps_chunk_size": 86400
-    }
+    },
+    "snapshots_seconds": 1800
   },
   "domain": {
     "type": "RegularLatLon",
@@ -23,8 +28,14 @@
   "meta": {
     "n_steps": 145,
     "dt_seconds": 1800,
+    "steps_output_seconds": 1800,
     "snapshots_seconds": 1800,
-    "estimated_snapshots": 146,
+    "estimated_steps_outputs": 146,
+    "diagnostic_snapshots": {
+      "enabled": true,
+      "interval_seconds": 86400,
+      "estimated": 4
+    },
     "first_file_checked": "examples\\dataset_day01.nc",
     "dims_first_file": {
       "time": 1,

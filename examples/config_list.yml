@@ -6,7 +6,7 @@ run:
   backtrajectory: false
   time_loops: 0
   snaps:
-    enabled: false
+    enabled: true
     interval_seconds: 86400
   output:
     dir: "./OUT_DEV_LIST/"

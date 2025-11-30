@@ -1,29 +1,20 @@
 {
-  "lagkinematic_version": "3.0.0",
+  "config_path": null,
   "run": {
     "start": "2016-06-01",
     "duration": "3d",
     "dt_seconds": 1800,
-    "steps_output_seconds": 1800,
-    "backtrajectory": false,
-    "time_loops": 0,
-    "snaps": {
-      "enabled": true,
-      "interval_seconds": 86400
-    },
-    "output": {
-      "dir": "C:\\Users\\Jacopo\\Documents\\Lagkinematic3.0\\OUT_DEV_LIST",
-      "format": "parquet",
-      "mode": "steps",
-      "steps_layout": "time",
-      "steps_chunk_size": 86400
-    },
-    "snapshots_seconds": 1800
+    "n_steps": 145
   },
-  "domain": {
-    "type": "RegularLatLon",
-    "files_mode": "list",
-    "num_files": 3
+  "output": {
+    "dir": "C:\\Users\\Jacopo\\Documents\\Lagkinematic3.0\\OUT_DEV_LIST",
+    "parquet_compression": "snappy",
+    "steps_compacted": [
+      "C:\\Users\\Jacopo\\Documents\\Lagkinematic3.0\\OUT_DEV_LIST\\steps\\rank0000\\steps_rank0000.parquet"
+    ]
+  },
+  "pairs": {
+    "n_pairs_total": 5
   },
   "meta": {
     "n_steps": 145,

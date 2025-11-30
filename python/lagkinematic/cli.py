@@ -1,5 +1,6 @@
 from __future__ import annotations
-import sys, pathlib, yaml, click
+import sys, yaml, click
+from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
 import numpy as np
@@ -127,7 +128,7 @@ def main(config: str):
         click.echo("LAGKINEMATIC 3.0 — Python controller")
         with open(config, "r") as f:
             cfg = yaml.safe_load(f)
-        outdir = pathlib.Path(cfg["run"]["output"]["dir"]).expanduser().absolute()
+        outdir = Path(cfg["run"]["output"]["dir"]).expanduser().absolute()
         outdir.mkdir(parents=True, exist_ok=True)
         cfg["run"]["output"]["dir"] = str(outdir)
     else:
@@ -486,5 +487,19 @@ def main(config: str):
     # Flush finale
     chunk_manager.finalize()
 
+    if COMM is not None:
+        COMM.Barrier()
+
     if RANK == 0:
         click.echo("[lagk] Integrazione Euler completata (RegularLatLonSampler + parquet writer)")
+
+        steps_root = Path(cfg["run"]["output"]["dir"]) / "steps"
+        if steps_root.exists():
+            from lagkinematic.writers.steps_compactor import compact_all_ranks
+
+            compacted = compact_all_ranks(str(steps_root))
+            click.echo(f"[lagk] Compattazione steps completata per {len(compacted)} rank")
+        else:
+            click.echo(
+                f"[lagk] Nessuna directory steps trovata in {steps_root}, compattazione saltata"
+            )

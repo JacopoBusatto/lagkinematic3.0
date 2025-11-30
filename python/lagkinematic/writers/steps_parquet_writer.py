@@ -34,6 +34,7 @@ class StepsParquetWriter(StepsWriter):
     base_dir: str
     rank: int
     layout: str = "time"  # per ora solo "time", ma lasciamo il campo per estensioni future
+    compression: str = "snappy"
 
     def __post_init__(self) -> None:
         self.base_path = Path(self.base_dir).expanduser().absolute()
@@ -59,10 +60,10 @@ class StepsParquetWriter(StepsWriter):
         df = pd.DataFrame.from_records(rows_list)
 
         # Scrittura parquet (usando engine di default: pyarrow se disponibile)
-        df.to_parquet(path, index=False)
+        df.to_parquet(path, index=False, compression=self.compression)
 
         click.echo(
             f"[rank {self.rank}] StepsParquetWriter: wrote chunk={chunk_index} "
-            f"rows={len(df)} → {path}",
+            f"rows={len(df)} → {path} (compression={self.compression})",
             err=False,
         )

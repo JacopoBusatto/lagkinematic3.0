@@ -21,7 +21,9 @@ def _build_output_path(rank_dir: Path, output_file: str | None) -> Path:
     return rank_dir / f"steps_{rank_name}.parquet"
 
 
-def compact_rank_steps(rank_dir: str, output_file: str | None = None) -> str:
+def compact_rank_steps(
+    rank_dir: str, output_file: str | None = None, compression: str | None = "snappy"
+) -> str:
     """
     Concatenate all step chunk Parquet files within a rank directory.
 
@@ -56,12 +58,12 @@ def compact_rank_steps(rank_dir: str, output_file: str | None = None) -> str:
 
     output_path = _build_output_path(rank_path, output_file)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(combined, output_path)
+    pq.write_table(combined, output_path, compression=compression)
 
     return str(output_path)
 
 
-def compact_all_ranks(steps_root: str) -> list[str]:
+def compact_all_ranks(steps_root: str, compression: str | None = "snappy") -> list[str]:
     """
     Compact step chunk files for every rank directory under ``steps_root``.
 
@@ -82,6 +84,6 @@ def compact_all_ranks(steps_root: str) -> list[str]:
 
     compacted_files: list[str] = []
     for rank_dir in rank_dirs:
-        compacted_files.append(compact_rank_steps(str(rank_dir)))
+        compacted_files.append(compact_rank_steps(str(rank_dir), compression=compression))
 
     return compacted_files

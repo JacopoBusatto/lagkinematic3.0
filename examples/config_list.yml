@@ -11,6 +11,7 @@ run:
   output:
     dir: "./OUT_DEV_LIST/"
     format: "parquet"
+    parquet_compression: "snappy"
     mode: "steps"
     steps_layout: "time"
     steps_chunk_size: 86400
@@ -36,6 +37,7 @@ starts:
 output:
   dir: "./OUT_DEV_LIST/"
   format: "parquet"
+  parquet_compression: "snappy"
   mode: "steps"
   steps_layout: "time"
 

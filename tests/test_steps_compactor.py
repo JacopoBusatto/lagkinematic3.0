@@ -31,7 +31,7 @@ def test_compact_rank_steps(tmp_path):
     _write_chunk(rank_dir / "part-r0000-c00000.parquet", chunk1)
     _write_chunk(rank_dir / "part-r0000-c00001.parquet", chunk2)
 
-    output_path = Path(compact_rank_steps(rank_dir))
+    output_path = Path(compact_rank_steps(rank_dir, compression="snappy"))
 
     assert output_path.exists()
 
@@ -56,7 +56,7 @@ def test_compact_all_ranks(tmp_path):
         [{"id": 1, "time": 1, "X1": 1, "Y1": 1, "Z1": 1, "X2": 1, "Y2": 1, "Z2": 1, "age": 1}],
     )
 
-    outputs = compact_all_ranks(tmp_path)
+    outputs = compact_all_ranks(tmp_path, compression="snappy")
 
     expected_paths = {
         str(rank0 / "steps_rank0000.parquet"),

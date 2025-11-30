@@ -10,8 +10,10 @@ from lagkinematic.io.filespec import expand_files
 from lagkinematic.io.regular_latlon import validate_regular_latlon
 from lagkinematic.io.starts import read_starts
 # ⬇️ usa SOLO il writer per-rank
-from lagkinematic.writers.parquet_writer import write_manifest, write_initial_positions_rank
+from lagkinematic.writers.parquet_writer import write_initial_positions_rank
 from lagkinematic.writers.steps_parquet_writer import StepsParquetWriter
+from lagkinematic.writers.steps_compactor import compact_all_ranks
+from lagkinematic.writers.manifest import write_manifest
 from lagkinematic.io.timeaxis import compute_time_axis_regular_latlon
 from lagkinematic.core.timegrid import build_time_grid, parse_duration_seconds
 from lagkinematic.geometry import LonLatDomain
@@ -135,6 +137,10 @@ def main(config: str):
         cfg = None
 
     cfg = bcast(cfg, root=0)
+    
+    # Impostazioni di output (compressione Parquet, ecc.)
+    output_cfg = cfg["run"].get("output", {})
+    parquet_compression = output_cfg.get("parquet_compression", "snappy")
 
     # 1) Espansione file
     try:
@@ -277,7 +283,6 @@ def main(config: str):
             "steps_chunk_size": int(cfg["run"]["output"].get("steps_chunk_size", 1000)),
         },
     }
-    write_manifest(cfg["run"]["output"]["dir"], cfg, meta)
 
     # 6) Scrivi posizioni iniziali per-rank (ogni rank il suo file)
     written_path = write_initial_positions_rank(
@@ -415,6 +420,7 @@ def main(config: str):
         base_dir=cfg["run"]["output"]["dir"],
         rank=RANK,
         layout=cfg["run"]["output"].get("steps_layout", "time"),
+        compression=parquet_compression,
     )
 
     # TimeChunkManager: usa steps_chunk_size come dimensione in secondi del chunk
@@ -484,22 +490,32 @@ def main(config: str):
 
             integrator.step_pair(pair, t_sec)
 
-    # Flush finale
+    # Flush finale: svuota il buffer di chunk
     chunk_manager.finalize()
 
     if COMM is not None:
         COMM.Barrier()
 
+    compacted: list[str] = []
     if RANK == 0:
-        click.echo("[lagk] Integrazione Euler completata (RegularLatLonSampler + parquet writer)")
-
         steps_root = Path(cfg["run"]["output"]["dir"]) / "steps"
         if steps_root.exists():
-            from lagkinematic.writers.steps_compactor import compact_all_ranks
-
-            compacted = compact_all_ranks(str(steps_root))
-            click.echo(f"[lagk] Compattazione steps completata per {len(compacted)} rank")
+            compacted = compact_all_ranks(
+                str(steps_root), compression=parquet_compression
+            )
+            click.echo(
+                f"[lagk] Compattati {len(compacted)} file per-rank (compression={parquet_compression})"
+            )
         else:
             click.echo(
-                f"[lagk] Nessuna directory steps trovata in {steps_root}, compattazione saltata"
+                f"[lagk] Nessuna directory steps trovata in {steps_root}, salto compattazione"
             )
+
+        click.echo("[lagk] Integrazione Euler completata (RegularLatLonSampler + parquet writer)")
+        manifest_path = write_manifest(
+            output_dir=cfg["run"]["output"]["dir"],
+            cfg=cfg,
+            meta=meta,
+            steps_compacted=compacted,
+        )
+        click.echo(f"[lagk] Manifest scritto in {manifest_path}")

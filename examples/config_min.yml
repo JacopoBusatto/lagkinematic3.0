@@ -7,6 +7,7 @@ run:
   output:
     dir: "./OUT_DEV/"
     format: "parquet"
+    parquet_compression: "snappy"
 
 domain:
   type: "RegularLatLon"

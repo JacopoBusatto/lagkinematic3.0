@@ -1,0 +1,56 @@
+run:
+  start: "2016-06-01"
+  duration: "10d"
+  dt_seconds: 1800
+  backtrajectory: false
+
+  steps_output_seconds: 86400
+
+  snaps:
+    enabled: true
+    interval_seconds: 86400  # snapshot diagnostico 1 volta al giorno
+
+  output:
+    dir: "./OUT_SYNTH"
+    mode: "steps"
+    steps_layout: "time"
+    steps_chunk_size: 86400      # 1 giorno per chunk (in secondi)
+    parquet_compression: "snappy"
+
+domain:
+  type: "RegularLatLon"
+  coords:
+    lon: "lon"
+    lat: "lat"
+    depth: "depth"
+    time: "time"
+  velocity:
+    u:
+      var: "ugo"
+    v:
+      var: "vgo"
+    w:
+      var: null
+
+  files:
+    mode: "list"
+    list:
+      - "examples/synth/dataset_synth_day01.nc"
+      - "examples/synth/dataset_synth_day02.nc"
+      - "examples/synth/dataset_synth_day03.nc"
+      - "examples/synth/dataset_synth_day04.nc"
+      - "examples/synth/dataset_synth_day05.nc"
+      - "examples/synth/dataset_synth_day06.nc"
+      - "examples/synth/dataset_synth_day07.nc"
+      - "examples/synth/dataset_synth_day08.nc"
+      - "examples/synth/dataset_synth_day09.nc"
+      - "examples/synth/dataset_synth_day10.nc"
+
+starts:
+  file: "examples/starts_synth.dat"
+
+mask:
+  enabled: true
+  threshold: 0.5
+  beaching_mode: "kill"     # così la coppia che parte su terra muore subito
+  bottom_mode: "kill"       # per ora uccidiamo se oltre il fondale stimato

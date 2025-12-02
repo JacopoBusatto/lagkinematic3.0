@@ -15,7 +15,7 @@ run:
     mode: "steps"
     steps_layout: "time"
     steps_chunk_size: 86400      # 1 giorno per chunk (in secondi)
-    parquet_compression: "snappy"
+    parquet_compression: "snappy" # none, snappy ...
 
 domain:
   type: "RegularLatLon"
@@ -53,4 +53,4 @@ mask:
   enabled: true
   threshold: 0.5
   beaching_mode: "kill"     # così la coppia che parte su terra muore subito
-  bottom_mode: "kill"       # per ora uccidiamo se oltre il fondale stimato
+  bottom_mode: "off"       # per ora uccidiamo se oltre il fondale stimato

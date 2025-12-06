@@ -1,47 +1,39 @@
 run:
-  start: "2016-06-01"
-  duration: "10d"
+  start: 2016-06-01T12:00:00      # stesso time del file 4DMED
+  duration: 10d
   dt_seconds: 1800
   backtrajectory: false
-  steps_output_seconds: 86400
   time_loops: 10                  # 1 giorno reale + 9 loop = 10 giorni
 
+  # output
+  steps_output_seconds: 86400     # salvo ogni giorno
   snaps:
     enabled: true
-    interval_seconds: 86400  # snapshot diagnostico 1 volta al giorno
+    interval_seconds: 86400       # snapshot giornaliero
 
   output:
-    dir: "./OUT_4DMED"
-    mode: "steps"
-    steps_layout: "time"
-    steps_chunk_size: 86400      # 1 giorno per chunk (in secondi)
-    parquet_compression: "snappy" # none, snappy ...
+    dir: ./OUT_REAL_4DMED
+    mode: steps
+    steps_layout: time
+    steps_chunk_size: 86400       # ~1 giorno per chunk
+    parquet_compression: snappy
 
 domain:
   type: "RegularLatLon"
-  coords:
-    lon: "longitude"
-    lat: "latitude"
-    depth: "depth"
-    time: "time"
+  coords: {lon: "longitude", lat: "latitude", depth: "depth", time: "time"}
   velocity:
-    u:
-      var: "ugo"
-    v:
-      var: "vgo"
-    w:
-      var: null
+    u: {var: "ugo"}
+    v: {var: "vgo"}
+    w: {var: null}
 
   files:
-    mode: "list"
-    list:
-      - "C:/Users/Jacopo/Documents/Lagkinematic3.0/examples/dataset_cls_20160601.nc"
+    mode: list
+    paths:
+      - 'C:/Users/Jacopo/Documents/DATI/4DMED/dataset-4dmed-phys-my-daily_20160601.nc'
 
 starts:
-  file: "examples/starts_real_4dmed.dat"
+  file: examples/starts_real_4dmed.dat
 
 mask:
-  enabled: true
-  threshold: 0.5
-  beaching_mode: "kill"     # così la coppia che parte su terra muore subito
-  bottom_mode: "off"       # per ora uccidiamo se oltre il fondale stimato
+  enabled: false
+
